@@ -2,6 +2,12 @@
 /dist
 /node_modules
 
+
+.env
+apps/user-acc-mgmt-service/.env
+apps/usage-mgmt-service/.env
+apps/storage-mgmt-service/.env
+
 # Logs
 logs
 *.log
