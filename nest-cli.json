@@ -1,24 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "apps/tick-tac/src",
+  "sourceRoot": "apps/user-acc-mgmt-service/src",
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsConfigPath": "apps/tick-tac/tsconfig.app.json"
+    "tsConfigPath": "apps/user-acc-mgmt-service/tsconfig.app.json"
   },
   "monorepo": true,
-  "root": "apps/tick-tac",
+  "root": "apps/user-acc-mgmt-service",
   "projects": {
-    "tick-tac": {
-      "type": "application",
-      "root": "apps/tick-tac",
-      "entryFile": "main",
-      "sourceRoot": "apps/tick-tac/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/tick-tac/tsconfig.app.json"
-      }
-    },
     "user-acc-mgmt-service": {
       "type": "application",
       "root": "apps/user-acc-mgmt-service",
@@ -44,6 +35,24 @@
       "sourceRoot": "apps/usage-mgmt-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/usage-mgmt-service/tsconfig.app.json"
+      }
+    },
+    "auth": {
+      "type": "library",
+      "root": "libs/auth",
+      "entryFile": "index",
+      "sourceRoot": "libs/auth/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/auth/tsconfig.lib.json"
+      }
+    },
+    "db": {
+      "type": "library",
+      "root": "libs/db",
+      "entryFile": "index",
+      "sourceRoot": "libs/db/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/db/tsconfig.lib.json"
       }
     }
   }

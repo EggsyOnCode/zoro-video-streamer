@@ -14,7 +14,7 @@ RUN npm install
 
 COPY . .
 
-RUN npm run build user-mgmt-service
+RUN npm run build user-acc-mgmt-service
 
 FROM node:alpine as production
 

@@ -1,14 +1,11 @@
+# Stage 1: Development
 FROM node:alpine As development
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm config rm proxy
-RUN npm config rm https-proxy
-RUN set HTTP_PROXY=null
-RUN set HTTPS_PROXY=null
-RUN npm config list  
+RUN npm install -g @nestjs/cli
 
 RUN npm install
 
@@ -16,6 +13,7 @@ COPY . .
 
 RUN npm run build usage-mgmt-service
 
+# Stage 2: Production
 FROM node:alpine as production
 
 ARG NODE_ENV=production
