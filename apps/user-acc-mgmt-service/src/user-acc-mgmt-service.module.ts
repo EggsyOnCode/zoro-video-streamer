@@ -30,7 +30,9 @@ import { UsersRepository } from './users.repository';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         secretOrPrivateKey: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRATION') },
+        signOptions: {
+          expiresIn: Number(configService.get<string>('JWT_EXPIRATION')) * 1000,
+        },
       }),
       inject: [ConfigService],
     }),
@@ -45,5 +47,6 @@ import { UsersRepository } from './users.repository';
     JwtStrategy,
     UsersRepository,
   ],
+  exports: [JwtStrategy],
 })
 export class UserAccMgmtServiceModule {}

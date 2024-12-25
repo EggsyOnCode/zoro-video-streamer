@@ -1,14 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "apps/user-acc-mgmt-service/src",
+  "sourceRoot": "apps/storage-mgmt-service/src",
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsConfigPath": "apps/user-acc-mgmt-service/tsconfig.app.json"
+    "tsConfigPath": "apps/storage-mgmt-service/tsconfig.app.json"
   },
   "monorepo": true,
-  "root": "apps/user-acc-mgmt-service",
+  "root": "apps/storage-mgmt-service",
   "projects": {
     "user-acc-mgmt-service": {
       "type": "application",

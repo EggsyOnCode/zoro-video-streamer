@@ -73,6 +73,17 @@ services:
     network_mode: host
     # networks:
     #   - net
+
+  # storage:
+  #   image: fsouza/fake-gcs-server
+  #   ports:
+  #     - '5050:4443'
+  #   command: -scheme http
+  #   volumes:
+  #     - storage_data:/storage
 # networks:
 #   net:
 #     name: net
+
+volumes:
+  storage_data:
