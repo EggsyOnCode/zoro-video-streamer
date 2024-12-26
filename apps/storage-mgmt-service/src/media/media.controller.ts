@@ -1,6 +1,5 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
   Patch,
@@ -12,6 +11,7 @@ import {
   UploadedFiles,
   Req,
   BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { CreateMediaDto } from './dto/create-media.dto';
@@ -54,21 +54,23 @@ export class MediaController {
     );
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.mediaService.findById(id);
-  }
-
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'video', maxCount: 1 }, // Expect 1 file for the 'video' field (optional)
+      { name: 'thumbnail', maxCount: 1 }, // Expect 1 file for the 'thumbnail' field (optional)
+    ]),
+  )
   @Patch(':id')
   async update(
     @Param('id') id: string,
     @Req() req: any, // to get user from the request
     @Body() updateMediaDto: UpdateMediaDto,
-    @UploadedFiles() files?: { [key: string]: Express.Multer.File },
+    @UploadedFiles(new FileSizeValidationPipe({ video: 50, thumbnail: 2 }))
+    files: { video?: Express.Multer.File[]; thumbnail?: Express.Multer.File[] },
   ) {
-    const video = files?.['video'];
-    const thumbnail = files?.['thumbnail'];
+    const video = files.video?.[0];
+    const thumbnail = files.thumbnail?.[0];
 
     return this.mediaService.update(
       id,
@@ -81,6 +83,7 @@ export class MediaController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @HttpCode(200)
   async remove(@Param('id') id: string, @Req() req: any) {
     return this.mediaService.remove(id, req.user.userId);
   }

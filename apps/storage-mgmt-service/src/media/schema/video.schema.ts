@@ -10,19 +10,19 @@ export class Video extends AbstractDocument {
   @Prop({ required: true, unique: true, default: uuidv4 })
   videoID: string; // UUID for video ID
 
-  @Prop({ required: true, type: Number })
-  length: number; // Length in seconds
-
   @Prop({ required: true, type: String })
+  length: string; // Length in seconds
+
+  @Prop({ required: true, type: String, unique: true })
   videoTitle: string;
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: true, type: String, unique: true })
   thumbnailUrl: string;
 
-  @Prop({ required: true, type: String }) // need this for bucket storage reference
+  @Prop({ required: true, type: String, unique: true }) // need this for bucket storage reference
   thumbnailFilename: string;
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: true, type: String, unique: true })
   videoUrl: string; // Path to the file
 
   @Prop({ required: true, type: Number })
