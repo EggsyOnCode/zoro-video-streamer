@@ -90,4 +90,51 @@ export class GcpStorageService {
     const bucketName = video ? this.bucketName : this.bucketNameThumbnail;
     return `https://storage.googleapis.com/${bucketName}/${filename}`;
   }
+
+  async generateSignedUrl(
+    filename: string,
+    video: boolean,
+    expiresInSeconds: number = 3600, // Default 1 hour expiration
+  ): Promise<string> {
+    const bucket = this.getBucket(video);
+    const file = bucket.file(filename);
+
+    try {
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + expiresInSeconds * 1000,
+      });
+      return url;
+    } catch (error) {
+      console.error(`Error generating signed URL for ${filename}:`, error);
+      throw new Error('Failed to generate signed URL');
+    }
+  }
+
+  async getFileMetadata(filename: string, video: boolean): Promise<any> {
+    const bucket = this.getBucket(video);
+    const file = bucket.file(filename);
+
+    try {
+      const [metadata] = await file.getMetadata();
+      return metadata;
+    } catch (error) {
+      console.error(`Error retrieving metadata for ${filename}:`, error);
+      throw new Error('Failed to retrieve file metadata');
+    }
+  }
+
+  async listFiles(
+    video: boolean,
+    startIndex: number,
+    pageSize: number,
+  ): Promise<any[]> {
+    const bucket = this.getBucket(video);
+    const [files] = await bucket.getFiles({
+      maxResults: pageSize,
+      autoPaginate: false,
+    });
+
+    return files.slice(startIndex, startIndex + pageSize);
+  }
 }

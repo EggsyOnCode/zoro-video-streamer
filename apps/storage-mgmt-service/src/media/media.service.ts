@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { CreateMediaDto } from './dto/create-media.dto';
 import { UpdateMediaDto } from './dto/update-media.dto';
@@ -11,6 +12,7 @@ import { Video } from './schema/video.schema';
 import { UserStorageRepository } from './repositories/user-storage.repository';
 import getVideoDurationInSeconds from 'get-video-duration';
 import { Readable } from 'stream';
+import { BulkResponse } from 'apps/user-acc-mgmt-service/src/dto/create-user.dto';
 
 @Injectable()
 export class MediaService {
@@ -93,10 +95,9 @@ export class MediaService {
   private async uploadFiles(
     video: Express.Multer.File,
     thumbnail: Express.Multer.File,
-    videoTitle: string,
   ) {
     const videoUploadResult = await this.gcpStorageService.uploadFile(
-      videoTitle,
+      video.originalname,
       video.buffer,
       true,
     );
@@ -150,6 +151,7 @@ export class MediaService {
     video: Express.Multer.File,
     thumbnail: Express.Multer.File,
     userId: string,
+    username: string,
   ) {
     if (!video || !thumbnail) {
       throw new BadRequestException('Both video and thumbnail are required');
@@ -168,7 +170,6 @@ export class MediaService {
     const { videoUploadResult, thumbnailUploadResult } = await this.uploadFiles(
       video,
       thumbnail,
-      createMediaDto.videoTitle,
     );
 
     const vidLength = await this.getVideoLength(video.buffer);
@@ -182,11 +183,13 @@ export class MediaService {
       videoTitle: createMediaDto.videoTitle,
       videoUrl: videoUploadResult,
       thumbnailFilename: thumbnail.originalname,
+      videoFileName: video.originalname,
+      username: username,
     };
 
     const savedVideo = await this.videoRepository.create(newVideo);
 
-    await this.updateUserStorageInfo(userStorageInfo, videoSizeMB, true);
+    // this is the resp of the usage monitoring service
 
     return {
       user: savedVideo.user,
@@ -195,8 +198,6 @@ export class MediaService {
       size: savedVideo.size,
       uploadedDate: savedVideo.uploadDate,
       videoId: savedVideo.videoID,
-      videoUrl: savedVideo.videoUrl,
-      thumbnailUrl: savedVideo.thumbnailUrl,
     };
   }
 
@@ -244,9 +245,11 @@ export class MediaService {
       }
     }
 
+    console.log(videoEntry.videoFileName);
+
     // Delete previous video and thumbnail if new ones are provided
     if (video) {
-      await this.gcpStorageService.deleteFile(videoEntry.videoTitle, true);
+      await this.gcpStorageService.deleteFile(videoEntry.videoFileName, true);
     }
     if (thumbnail) {
       await this.gcpStorageService.deleteFile(
@@ -258,13 +261,14 @@ export class MediaService {
     // Upload new video and thumbnail
     if (video) {
       const videoUploadResult = await this.gcpStorageService.uploadFile(
-        updateMediaDto.videoTitle || videoEntry.videoTitle,
+        video.originalname,
         video.buffer,
         true,
       );
       videoEntry.videoUrl = videoUploadResult;
       videoEntry.size = newVideoSizeMB;
       videoEntry.length = await this.getVideoLength(video.buffer);
+      videoEntry.videoFileName = video.originalname;
     }
 
     if (thumbnail) {
@@ -305,8 +309,6 @@ export class MediaService {
       size: updatedVideo.size,
       uploadedDate: updatedVideo.uploadDate,
       videoId: updatedVideo.videoID,
-      videoUrl: updatedVideo.videoUrl,
-      thumbnailUrl: updatedVideo.thumbnailUrl,
     };
   }
 
@@ -319,7 +321,7 @@ export class MediaService {
       throw new BadRequestException('Video not found');
     }
 
-    await this.gcpStorageService.deleteFile(videoEntry.videoTitle, true);
+    await this.gcpStorageService.deleteFile(videoEntry.videoFileName, true);
     if (videoEntry.thumbnailUrl) {
       await this.gcpStorageService.deleteFile(
         videoEntry.thumbnailFilename,
@@ -331,9 +333,148 @@ export class MediaService {
     await this.updateUserStorageInfo(userStorageInfo, videoEntry.size, false);
 
     try {
-      return await this.videoRepository.remove({ videoID: videoEntry.videoID });
+      await this.videoRepository.remove({ videoID: videoEntry.videoID });
+      return {
+        msg: 'success',
+      };
     } catch (error) {
       throw new InternalServerErrorException("couldn't remove the video.");
     }
+  }
+
+  // should return video signedUrl , thumbnail's signedUrl, video title, video length, upload date
+  async getVideo(videoId: string): Promise<{
+    videoSignedUrl: string;
+    thumbnailSignedUrl: string;
+    title: string;
+    length: string;
+    uploadDate: Date;
+    username: string;
+  }> {
+    const video = await this.videoRepository.findOne({
+      videoID: videoId,
+    });
+
+    if (!video) {
+      throw new NotFoundException(`Video with ID ${videoId} not found.`);
+    }
+
+    // Fetch video and thumbnail file names from your database
+    const videoFilename = video.videoFileName;
+    const thumbnailFilename = video.thumbnailFilename;
+
+    // Generate signed URLs
+    const videoSignedUrl = await this.gcpStorageService.generateSignedUrl(
+      videoFilename,
+      true,
+    );
+    const thumbnailSignedUrl = await this.gcpStorageService.generateSignedUrl(
+      thumbnailFilename,
+      false,
+    );
+
+    // Fetch video metadata (example: title and length)
+    const videoMetadata = await this.gcpStorageService.getFileMetadata(
+      videoFilename,
+      true,
+    );
+
+    if (!videoMetadata) {
+      throw new NotFoundException(`Video with ID ${videoId} not found.`);
+    }
+
+    // Example metadata extraction
+    const title = video.videoTitle;
+    const length = video.length;
+    const uploadDate = video.uploadDate;
+    const username = video.username;
+
+    return {
+      videoSignedUrl,
+      thumbnailSignedUrl,
+      title,
+      length,
+      uploadDate,
+      username,
+    };
+  }
+
+  private convertSecondsToHMS(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return [h, m, s].map((v) => v.toString().padStart(2, '0')).join(':');
+  }
+
+  async getPaginatedVideos(
+    pageIndex: number = 0,
+    pageSize: number = 50,
+  ): Promise<
+    {
+      videoId: string;
+      title: string;
+      length: string;
+      thumbnailSignedUrl: string;
+      uploadDate: Date;
+      uploadedBy: string;
+    }[]
+  > {
+    if (pageSize > 50) {
+      throw new BadRequestException('Page size cannot exceed 50.');
+    }
+
+    const start = pageIndex * pageSize;
+    const thumbnails = await this.gcpStorageService.listFiles(
+      false, // Indicates the thumbnail bucket
+      start,
+      pageSize,
+    );
+
+    const videos = await Promise.all(
+      thumbnails.map(async (thumbnail) => {
+        const thumbnailSignedUrl =
+          await this.gcpStorageService.generateSignedUrl(
+            thumbnail.name,
+            false,
+            600, // 10 minutes expiration
+          );
+
+        const video = await this.videoRepository.findOne({
+          thumbnailFilename: thumbnail.name,
+        });
+
+        if (!video) {
+          throw new InternalServerErrorException("coudln't list the videos");
+        }
+
+        return {
+          videoId: video.videoID,
+          title: video.videoTitle,
+          length: video.length,
+          thumbnailSignedUrl,
+          uploadDate: video.uploadDate,
+          uploadedBy: video.username,
+        };
+      }),
+    );
+
+    return videos.filter((video) => video !== null);
+  }
+
+  async bulkRemove(
+    videoIds: string[],
+    userId: string,
+  ): Promise<BulkResponse[]> {
+    let responses: BulkResponse[];
+
+    for (const videoId of videoIds) {
+      const { msg } = await this.remove(videoId, userId);
+      responses.push({
+        videoId: videoId,
+        msg: msg,
+      });
+    }
+
+    return responses;
   }
 }

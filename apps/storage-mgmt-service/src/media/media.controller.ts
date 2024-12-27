@@ -12,6 +12,8 @@ import {
   Req,
   BadRequestException,
   HttpCode,
+  Get,
+  Query,
 } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { CreateMediaDto } from './dto/create-media.dto';
@@ -31,7 +33,7 @@ export class MediaController {
       { name: 'thumbnail', maxCount: 1 }, // Expect 1 file for the 'thumbnail' field
     ]),
   )
-  @Post()
+  @Post('/video')
   async create(
     @Body(ValidationPipe) createMediaDto: CreateMediaDto,
     @UploadedFiles(new FileSizeValidationPipe({ video: 50, thumbnail: 2 }))
@@ -51,6 +53,7 @@ export class MediaController {
       video,
       thumbnail,
       req.user.userId,
+      req.user.username,
     );
   }
 
@@ -61,7 +64,7 @@ export class MediaController {
       { name: 'thumbnail', maxCount: 1 }, // Expect 1 file for the 'thumbnail' field (optional)
     ]),
   )
-  @Patch(':id')
+  @Patch('/video/:id')
   async update(
     @Param('id') id: string,
     @Req() req: any, // to get user from the request
@@ -82,9 +85,40 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete(':id')
+  @Delete('/video/:id')
   @HttpCode(200)
   async remove(@Param('id') id: string, @Req() req: any) {
     return this.mediaService.remove(id, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/video/:id')
+  @HttpCode(200)
+  async findOne(@Param('id') id: string) {
+    return this.mediaService.getVideo(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/dashboard-videos')
+  @HttpCode(200)
+  async getDashboardVideos(
+    @Query('pageIndex') pageIndex: number = 0,
+    @Query('pageSize') pageSize: number = 50,
+  ) {
+    return this.mediaService.getPaginatedVideos(pageIndex, pageSize);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('/videos/bulk')
+  @HttpCode(200)
+  async bulkRemove(@Body() body: { videoIds: string[] }, @Req() req: any) {
+    const { videoIds } = body;
+    console.log(videoIds);
+
+    if (!Array.isArray(videoIds) || videoIds.length === 0) {
+      throw new Error('Invalid input: videoIds must be a non-empty array.');
+    }
+
+    return this.mediaService.bulkRemove(videoIds, req.user.userId);
   }
 }

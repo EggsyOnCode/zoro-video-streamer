@@ -7,6 +7,9 @@ export class Video extends AbstractDocument {
   @Prop({ required: true, type: String, ref: 'User' })
   user: string; // Reference to the User schema
 
+  @Prop({ required: true, type: String, ref: 'User' })
+  username: string;
+
   @Prop({ required: true, unique: true, default: uuidv4 })
   videoID: string; // UUID for video ID
 
@@ -19,7 +22,10 @@ export class Video extends AbstractDocument {
   @Prop({ required: true, type: String, unique: true })
   thumbnailUrl: string;
 
-  @Prop({ required: true, type: String, unique: true }) // need this for bucket storage reference
+  @Prop({ required: true, type: String })
+  videoFileName: string;
+
+  @Prop({ required: true, type: String, unique: true })
   thumbnailFilename: string;
 
   @Prop({ required: true, type: String, unique: true })

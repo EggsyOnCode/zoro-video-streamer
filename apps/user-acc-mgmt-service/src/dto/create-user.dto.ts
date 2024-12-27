@@ -24,3 +24,8 @@ export class CreateUserDto {
   })
   password: string;
 }
+
+export interface BulkResponse {
+  videoId: string;
+  msg: string;
+}
