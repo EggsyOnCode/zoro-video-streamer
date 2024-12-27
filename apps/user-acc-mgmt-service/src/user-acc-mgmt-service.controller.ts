@@ -8,6 +8,7 @@ import {
   Request,
   Res,
   HttpCode,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -40,14 +41,13 @@ export class UserAccMgmtServiceController {
 
   @UseGuards(AuthGuard('local'))
   @Post('login')
+  @HttpCode(200)
   async login(@Request() req, @Res({ passthrough: true }) response: Response) {
     console.log(req.user);
 
     const res = await this.authSerivce.login(req.user);
     const expiryDate = new Date();
-    expiryDate.setTime(
-      expiryDate.getTime() + Number(this.configService.get('JWT_EXPIRATION')),
-    ); // 24 hour in milliseconds
+    expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000); // 24 hour in milliseconds
 
     response.cookie('jwt', res.access_token, {
       httpOnly: true,
@@ -65,11 +65,15 @@ export class UserAccMgmtServiceController {
   async getInfo(@Request() req) {
     const user = await this.usersService.findOne(req.user.userId);
 
-    return {
-      id: user.userId,
-      username: user.username,
-      email: user.email,
-    };
+    if (!user) {
+      return new BadRequestException('User not found');
+    } else {
+      return {
+        id: user.userId,
+        username: user.username,
+        email: user.email,
+      };
+    }
   }
 
   // @Post('logout')
