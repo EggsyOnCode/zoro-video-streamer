@@ -19,5 +19,6 @@ export interface mediaConsumedMsg {
   videoId: string;
   userId: string;
   videoMetadata: VideoMetadata;
+  oldVideoMetadata?: VideoMetadata;
   timeStamp: Date;
 }

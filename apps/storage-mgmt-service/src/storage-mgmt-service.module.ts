@@ -2,16 +2,15 @@ import { Module } from '@nestjs/common';
 import { StorageMgmtServiceController } from './storage-mgmt-service.controller';
 import { StorageMgmtServiceService } from './storage-mgmt-service.service';
 import { MediaModule } from './media/media.module';
-import { UserAccMgmtServiceModule } from 'apps/user-acc-mgmt-service/src/user-acc-mgmt-service.module';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 import { DatabaseModule } from 'libs/database';
+import { JwtStrategy } from 'apps/user-acc-mgmt-service/src/services/jwt.strategy';
 
 @Module({
   imports: [
     DatabaseModule,
     MediaModule,
-    UserAccMgmtServiceModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
@@ -29,6 +28,6 @@ import { DatabaseModule } from 'libs/database';
     }),
   ],
   controllers: [StorageMgmtServiceController],
-  providers: [StorageMgmtServiceService],
+  providers: [StorageMgmtServiceService, JwtStrategy],
 })
 export class StorageMgmtServiceModule {}

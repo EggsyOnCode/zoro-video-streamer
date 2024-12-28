@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UsageMgmtServiceController } from './usage-mgmt-service.controller';
 import { UsageMgmtService } from './usage-mgmt-service.service';
-import { DatabaseModule } from 'libs/database';
+import { DatabaseModule, UserStorageRepository } from 'libs/database';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 
@@ -25,6 +25,6 @@ import * as Joi from 'joi';
     }),
   ],
   controllers: [UsageMgmtServiceController],
-  providers: [UsageMgmtService],
+  providers: [UsageMgmtService, UserStorageRepository],
 })
 export class UsageMgmtServiceModule {}

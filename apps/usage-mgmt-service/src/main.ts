@@ -1,15 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { UsageMgmtServiceModule } from './usage-mgmt-service.module';
-import { PubSubServer } from 'nestjs-google-pubsub';
+import { GCPubSubServer } from 'nestjs-google-pubsub-microservice';
 
 async function bootstrap() {
+  const topic = process.env.PUBSUB_TOPIC;
+  const subscription = process.env.PUBSUB_SUBSCRIPTION;
   const app = await NestFactory.createMicroservice(UsageMgmtServiceModule, {
-    strategy: new PubSubServer({
-      projectId: process.env.PROJECT_ID,
-      topics: {
-        media_consumed: {
-          subscriptionId: process.env.PUBSUB_SUBSCRIPTION,
-        },
+    strategy: new GCPubSubServer({
+      topic: topic,
+      subscription: subscription,
+      client: {
+        projectId: process.env.PROJECT_ID,
       },
     }),
   });

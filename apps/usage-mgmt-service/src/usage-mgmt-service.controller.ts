@@ -1,7 +1,8 @@
 import { Controller } from '@nestjs/common';
 import { UsageMgmtService } from './usage-mgmt-service.service';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Ctx, EventPattern } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
+import { GCPubSubContext } from 'nestjs-google-pubsub-microservice';
 
 @Controller()
 export class UsageMgmtServiceController {
@@ -15,10 +16,9 @@ export class UsageMgmtServiceController {
       'projects/cc-final-445817/topics/media_consumed';
   }
 
-  @EventPattern('media_consumed')
-  async handleMediaConsumed(@Payload() data: any) {
-    const res = Buffer.from(data.data, 'base64').toString();
-    const resObj = this.usageMgmtServiceService.parseMediaConsumedMsg(res);
-    console.log(`Received message:`, resObj);
+  @EventPattern(undefined)
+  async handleMediaConsumed(@Ctx() context: GCPubSubContext) {
+    const msg = JSON.parse(context.getMessage().data.toString());
+    return await this.usageMgmtServiceService.processMediaConsumed(msg);
   }
 }

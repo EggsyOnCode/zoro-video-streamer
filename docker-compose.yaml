@@ -1,57 +1,4 @@
 services:
-  # storage-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/service-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev storage-mgmt-service
-  #   env_file:
-  #     - ./apps/storage-mgmt-service/.env
-  #   depends_on:
-  #     - mongo
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #   ports:
-  #     - '3000:3000'
-  #   networks:
-  #     - net
-
-  # user-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/user-acc-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev user-mgmt-service
-  #   env_file:
-  #     - ./apps/user-acc-mgmt-service/.env
-  #   depends_on:
-  #     - mongo
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #   ports:
-  #     - '4000:4000'
-  #   networks:
-  #     - net
-
-  # usage-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/usage-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev usage-mgmt-service
-  #   env_file:
-  #     - ./apps/usage-mgmt-service/.env
-  #   depends_on:
-  #     - mongo
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #   ports:
-  #     - '5000:5000'
-  #   networks:
-  #     - net
   mongo:
     image: mongo
     restart: always
@@ -71,19 +18,78 @@ services:
       ME_CONFIG_MONGODB_URL: mongodb://root:root@localhost:27017/
       ME_CONFIG_BASICAUTH: false
     network_mode: host
-    # networks:
-    #   - net
 
-  # storage:
-  #   image: fsouza/fake-gcs-server
+  # Mongo Express for storage management (connecting to mongo-storage)
+  # mongo-express-storage:
+  #   image: mongo-express
+  #   restart: always
   #   ports:
-  #     - '5050:4443'
-  #   command: -scheme http
-  #   volumes:
-  #     - storage_data:/storage
-# networks:
-#   net:
-#     name: net
+  #     - 8082:8081 # Expose mongo-express UI port
+  #   environment:
+  #     ME_CONFIG_MONGODB_ADMINUSERNAME: root
+  #     ME_CONFIG_MONGODB_ADMINPASSWORD: root
+  #     ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo-storage:27017/ # Point to mongo-storage service
+  #     ME_CONFIG_BASICAUTH: false
 
-volumes:
-  storage_data:
+  # Storage Management Service
+  # storage-mgmt-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/storage-mgmt-service/Dockerfile
+  #     target: development
+  #   command: npm run start:dev storage-mgmt-service
+  #   env_file:
+  #     - ./apps/storage-mgmt-service/.env
+  #   depends_on:
+  #     - mongo-user
+  #   volumes:
+  #     - .:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+  #   environment:
+  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+  #   ports:
+  #     - '3000:3000'
+  #   network_mode: host
+
+  # # User Management Service
+  # user-mgmt-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/user-acc-mgmt-service/Dockerfile
+  #     target: development
+  #   command: npm run start:dev user-mgmt-service
+  #   env_file:
+  #     - ./apps/user-acc-mgmt-service/.env
+  #   depends_on:
+  #     - mongo-user
+  #   volumes:
+  #     - .:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+  #   environment:
+  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+  #   ports:
+  #     - '4000:4000'
+  #   network_mode: host
+
+  # # Usage Management Service
+  # usage-mgmt-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/usage-mgmt-service/Dockerfile
+  #     target: development
+  #   command: npm run start:dev usage-mgmt-service
+  #   env_file:
+  #     - ./apps/usage-mgmt-service/.env
+  #   depends_on:
+  #     - mongo-user
+  #   volumes:
+  #     - .:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+  #   environment:
+  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+  #   ports:
+  #     - '5000:5000'
+  #   network_mode: host

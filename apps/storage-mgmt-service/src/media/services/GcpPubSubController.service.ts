@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { mediaConsumedMsg } from '../utils/pubSubTypes';
+import { mediaConsumedMsg } from '@app/pubsub';
 import { PubSub } from '@google-cloud/pubsub';
 
 @Injectable()
