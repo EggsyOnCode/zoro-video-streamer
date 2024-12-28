@@ -31,6 +31,7 @@ export class UserAccMgmtServiceController {
   @HttpCode(201)
   async create(@Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.create(createUserDto);
+    console.log(user);
 
     return {
       id: user.userId,
@@ -48,6 +49,7 @@ export class UserAccMgmtServiceController {
     const res = await this.authSerivce.login(req.user);
     const expiryDate = new Date();
     expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000); // 24 hour in milliseconds
+    console.log('helllo...');
 
     response.cookie('jwt', res.access_token, {
       httpOnly: true,
@@ -64,6 +66,7 @@ export class UserAccMgmtServiceController {
   @Get('info')
   async getInfo(@Request() req) {
     const user = await this.usersService.findOne(req.user.userId);
+    console.log(user);
 
     if (!user) {
       return new BadRequestException('User not found');

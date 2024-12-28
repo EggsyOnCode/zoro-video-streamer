@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import {
+  UserStorageInfo,
+  UserStorageInfoSchema,
+} from './repositories/user-storage.schema';
 
 @Module({
   imports: [
@@ -10,6 +14,10 @@ import { MongooseModule } from '@nestjs/mongoose';
       }),
       inject: [ConfigService],
     }),
+    MongooseModule.forFeature([
+      { name: UserStorageInfo.name, schema: UserStorageInfoSchema },
+    ]),
   ],
+  exports: [MongooseModule],
 })
 export class DatabaseModule {}

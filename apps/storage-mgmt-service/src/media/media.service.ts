@@ -9,17 +9,22 @@ import { UpdateMediaDto } from './dto/update-media.dto';
 import { GcpStorageService } from './services/gcp-storage.service';
 import { VideosRepository } from './repositories/video.repository';
 import { Video } from './schema/video.schema';
-import { UserStorageRepository } from './repositories/user-storage.repository';
 import getVideoDurationInSeconds from 'get-video-duration';
 import { Readable } from 'stream';
 import { BulkResponse } from 'apps/user-acc-mgmt-service/src/dto/create-user.dto';
+import { GCPubSubController } from './services/GcpPubSubController.service';
+import { ConfigService } from '@nestjs/config';
+import { UserStorageRepository } from 'libs/database';
+import { MediaEvent, mediaConsumedMsg } from '@app/pubsub';
 
 @Injectable()
 export class MediaService {
   constructor(
     private readonly gcpStorageService: GcpStorageService,
     private readonly videoRepository: VideosRepository,
+    private readonly configService: ConfigService,
     private readonly userStorageInfoRepository: UserStorageRepository,
+    private readonly pubSubService: GCPubSubController,
   ) {}
 
   private async getUserStorageInfo(userId: string) {
@@ -111,22 +116,6 @@ export class MediaService {
     return { videoUploadResult, thumbnailUploadResult };
   }
 
-  private async updateUserStorageInfo(
-    userStorageInfo: any,
-    videoSizeMB: number,
-    isAdding: boolean,
-  ) {
-    userStorageInfo.total_videos += isAdding ? 1 : -1;
-    userStorageInfo.total_storage_used += isAdding ? videoSizeMB : -videoSizeMB;
-    userStorageInfo.dailyBandwidthUsed += videoSizeMB;
-    userStorageInfo.lastUpdated = new Date();
-
-    await this.userStorageInfoRepository.upsert(
-      { user: userStorageInfo.user },
-      userStorageInfo,
-    );
-  }
-
   formatToHHMMSS(lengthInSeconds: number): string {
     const hours = Math.floor(lengthInSeconds / 3600);
     const minutes = Math.floor((lengthInSeconds % 3600) / 60);
@@ -189,8 +178,9 @@ export class MediaService {
 
     const savedVideo = await this.videoRepository.create(newVideo);
 
-    // this is the resp of the usage monitoring service
+    await this.notifyMediaConsumed(MediaEvent.UPLOAD, savedVideo, userId);
 
+    // this is the resp of the usage monitoring service
     return {
       user: savedVideo.user,
       videoTitel: savedVideo.videoTitle,
@@ -198,7 +188,7 @@ export class MediaService {
       size: savedVideo.size,
       uploadedDate: savedVideo.uploadDate,
       videoId: savedVideo.videoID,
-    };
+    }; //;
   }
 
   async update(
@@ -213,6 +203,7 @@ export class MediaService {
       videoID: videoId,
       user: userId,
     });
+    const oldVideo = videoEntry;
     if (!videoEntry) {
       throw new BadRequestException('Video not found');
     }
@@ -291,20 +282,16 @@ export class MediaService {
       videoEntry,
     );
 
-    // Update user storage info
-    userStorageInfo.total_storage_used =
-      userStorageInfo.total_storage_used - videoEntry.size + newVideoSizeMB;
-    userStorageInfo.dailyBandwidthUsed += newVideoSizeMB;
-    userStorageInfo.lastUpdated = new Date();
-
-    await this.userStorageInfoRepository.upsert(
-      { user: userId },
-      userStorageInfo,
+    await this.notifyMediaConsumed(
+      MediaEvent.UPDATE,
+      videoEntry,
+      userId,
+      oldVideo,
     );
 
     return {
       user: updatedVideo.user,
-      videoTitel: updatedVideo.videoTitle,
+      videoTitle: updatedVideo.videoTitle,
       length: updatedVideo.length,
       size: updatedVideo.size,
       uploadedDate: updatedVideo.uploadDate,
@@ -329,11 +316,14 @@ export class MediaService {
       );
     }
 
-    const userStorageInfo = await this.getUserStorageInfo(userId);
-    await this.updateUserStorageInfo(userStorageInfo, videoEntry.size, false);
+    // const userStorageInfo = await this.getUserStorageInfo(userId);
+    // await this.updateUserStorageInfo(userStorageInfo, videoEntry.size, false);
 
     try {
       await this.videoRepository.remove({ videoID: videoEntry.videoID });
+
+      // if successful, notify the usage monitoring service
+      await this.notifyMediaConsumed(MediaEvent.DELETE, videoEntry, userId);
       return {
         msg: 'success',
       };
@@ -438,13 +428,16 @@ export class MediaService {
             false,
             600, // 10 minutes expiration
           );
+        console.log(thumbnail.name);
 
         const video = await this.videoRepository.findOne({
           thumbnailFilename: thumbnail.name,
         });
+        console.log(video);
 
         if (!video) {
-          throw new InternalServerErrorException("coudln't list the videos");
+          // throw new InternalServerErrorException("coudln't list the videos");
+          return;
         }
 
         return {
@@ -458,7 +451,9 @@ export class MediaService {
       }),
     );
 
-    return videos.filter((video) => video !== null);
+    console.log(videos);
+
+    return videos.filter((video) => video !== undefined);
   }
 
   async bulkRemove(
@@ -476,5 +471,37 @@ export class MediaService {
     }
 
     return responses;
+  }
+
+  async notifyMediaConsumed(
+    event: MediaEvent,
+    videoEntry: Partial<Video>,
+    userId: string,
+    oldVideoEntry?: Partial<Video>,
+  ) {
+    const message: mediaConsumedMsg = {
+      mediaEvent: event,
+      videoId: videoEntry.videoID,
+      userId: userId,
+      videoMetadata: {
+        title: videoEntry.videoTitle,
+        length: videoEntry.length,
+        size: videoEntry.size,
+        uploadDate: videoEntry.uploadDate,
+      },
+      timeStamp: new Date(),
+    };
+    if (oldVideoEntry) {
+      message.oldVideoMetadata = {
+        title: oldVideoEntry.videoTitle,
+        length: oldVideoEntry.length,
+        size: oldVideoEntry.size,
+        uploadDate: oldVideoEntry.uploadDate,
+      };
+    }
+    await this.pubSubService.sendMessage(
+      this.configService.get('PUBSUB_TOPIC'),
+      message,
+    );
   }
 }
