@@ -13,13 +13,18 @@ import { UserStorageRepository } from './repositories/user-storage.repository';
 import getVideoDurationInSeconds from 'get-video-duration';
 import { Readable } from 'stream';
 import { BulkResponse } from 'apps/user-acc-mgmt-service/src/dto/create-user.dto';
+import { GCPubSubController } from './services/GcpPubSubController.service';
+import { mediaConsumedMsg, MediaEvent } from './utils/pubSubTypes';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MediaService {
   constructor(
     private readonly gcpStorageService: GcpStorageService,
     private readonly videoRepository: VideosRepository,
+    private readonly configService: ConfigService,
     private readonly userStorageInfoRepository: UserStorageRepository,
+    private readonly pubSubService: GCPubSubController,
   ) {}
 
   private async getUserStorageInfo(userId: string) {
@@ -153,51 +158,65 @@ export class MediaService {
     userId: string,
     username: string,
   ) {
-    if (!video || !thumbnail) {
-      throw new BadRequestException('Both video and thumbnail are required');
-    }
+    // if (!video || !thumbnail) {
+    //   throw new BadRequestException('Both video and thumbnail are required');
+    // }
 
-    const videoSizeMB = +(video.size / (1024 * 1024)).toFixed(2);
-    const userStorageInfo = await this.getUserStorageInfo(userId);
+    // const videoSizeMB = +(video.size / (1024 * 1024)).toFixed(2);
+    // const userStorageInfo = await this.getUserStorageInfo(userId);
 
-    await this.validatePreChecks(
-      userStorageInfo,
-      videoSizeMB,
-      createMediaDto.videoTitle,
-      thumbnail.originalname,
-    );
+    // await this.validatePreChecks(
+    //   userStorageInfo,
+    //   videoSizeMB,
+    //   createMediaDto.videoTitle,
+    //   thumbnail.originalname,
+    // );
 
-    const { videoUploadResult, thumbnailUploadResult } = await this.uploadFiles(
-      video,
-      thumbnail,
-    );
+    // const { videoUploadResult, thumbnailUploadResult } = await this.uploadFiles(
+    //   video,
+    //   thumbnail,
+    // );
 
-    const vidLength = await this.getVideoLength(video.buffer);
+    // const vidLength = await this.getVideoLength(video.buffer);
 
-    const newVideo: Partial<Video> = {
+    // const newVideo: Partial<Video> = {
+    //   user: userId,
+    //   length: vidLength,
+    //   size: videoSizeMB,
+    //   uploadDate: new Date(),
+    //   thumbnailUrl: thumbnailUploadResult,
+    //   videoTitle: createMediaDto.videoTitle,
+    //   videoUrl: videoUploadResult,
+    //   thumbnailFilename: thumbnail.originalname,
+    //   videoFileName: video.originalname,
+    //   username: username,
+    // };
+
+    // const savedVideo = await this.videoRepository.create(newVideo);
+
+    const savedVideo = {
       user: userId,
-      length: vidLength,
-      size: videoSizeMB,
-      uploadDate: new Date(),
-      thumbnailUrl: thumbnailUploadResult,
       videoTitle: createMediaDto.videoTitle,
-      videoUrl: videoUploadResult,
-      thumbnailFilename: thumbnail.originalname,
-      videoFileName: video.originalname,
+      length: '00:00:00',
+      size: 0,
+      uploadDate: new Date(),
+      thumbnailUrl: '',
+      videoUrl: '',
+      thumbnailFilename: '',
+      videoFileName: '',
       username: username,
     };
 
-    const savedVideo = await this.videoRepository.create(newVideo);
+    await this.notifyMediaConsumed(MediaEvent.UPLOAD, savedVideo, userId);
 
     // this is the resp of the usage monitoring service
-
     return {
-      user: savedVideo.user,
-      videoTitel: savedVideo.videoTitle,
-      length: savedVideo.length,
-      size: savedVideo.size,
-      uploadedDate: savedVideo.uploadDate,
-      videoId: savedVideo.videoID,
+      // user: savedVideo.user,
+      // videoTitel: savedVideo.videoTitle,
+      // length: savedVideo.length,
+      // size: savedVideo.size,
+      // uploadedDate: savedVideo.uploadDate,
+      // videoId: savedVideo.videoID,
     };
   }
 
@@ -291,16 +310,18 @@ export class MediaService {
       videoEntry,
     );
 
-    // Update user storage info
-    userStorageInfo.total_storage_used =
-      userStorageInfo.total_storage_used - videoEntry.size + newVideoSizeMB;
-    userStorageInfo.dailyBandwidthUsed += newVideoSizeMB;
-    userStorageInfo.lastUpdated = new Date();
+    await this.notifyMediaConsumed(MediaEvent.UPDATE, videoEntry, userId);
 
-    await this.userStorageInfoRepository.upsert(
-      { user: userId },
-      userStorageInfo,
-    );
+    // // Update user storage info
+    // userStorageInfo.total_storage_used =
+    //   userStorageInfo.total_storage_used - videoEntry.size + newVideoSizeMB;
+    // userStorageInfo.dailyBandwidthUsed += newVideoSizeMB;
+    // userStorageInfo.lastUpdated = new Date();
+
+    // await this.userStorageInfoRepository.upsert(
+    //   { user: userId },
+    //   userStorageInfo,
+    // );
 
     return {
       user: updatedVideo.user,
@@ -329,11 +350,14 @@ export class MediaService {
       );
     }
 
-    const userStorageInfo = await this.getUserStorageInfo(userId);
-    await this.updateUserStorageInfo(userStorageInfo, videoEntry.size, false);
+    // const userStorageInfo = await this.getUserStorageInfo(userId);
+    // await this.updateUserStorageInfo(userStorageInfo, videoEntry.size, false);
 
     try {
       await this.videoRepository.remove({ videoID: videoEntry.videoID });
+
+      // if successful, notify the usage monitoring service
+      await this.notifyMediaConsumed(MediaEvent.DELETE, videoEntry, userId);
       return {
         msg: 'success',
       };
@@ -476,5 +500,28 @@ export class MediaService {
     }
 
     return responses;
+  }
+
+  async notifyMediaConsumed(
+    event: MediaEvent,
+    videoEntry: Partial<Video>,
+    userId: string,
+  ) {
+    const message: mediaConsumedMsg = {
+      mediaEvent: event,
+      videoId: videoEntry.videoID,
+      userId: userId,
+      videoMetadata: {
+        title: videoEntry.videoTitle,
+        length: videoEntry.length,
+        size: videoEntry.size,
+        uploadDate: videoEntry.uploadDate,
+      },
+      timeStamp: new Date(),
+    };
+    await this.pubSubService.sendMessage(
+      this.configService.get('PUBSUB_TOPIC'),
+      message,
+    );
   }
 }

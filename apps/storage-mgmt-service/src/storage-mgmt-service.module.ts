@@ -5,9 +5,11 @@ import { MediaModule } from './media/media.module';
 import { UserAccMgmtServiceModule } from 'apps/user-acc-mgmt-service/src/user-acc-mgmt-service.module';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
+import { DatabaseModule } from 'libs/database';
 
 @Module({
   imports: [
+    DatabaseModule,
     MediaModule,
     UserAccMgmtServiceModule,
     ConfigModule.forRoot({
@@ -20,6 +22,8 @@ import * as Joi from 'joi';
         BUCKET_NAME_VIDEOS: Joi.string().required(),
         BUCKET_NAME_THUMBNAILS: Joi.string().required(),
         PROJECT_ID: Joi.string().required(),
+        PUBSUB_TOPIC: Joi.string().required(),
+        PUBSUB_SUBSCRIPTION: Joi.string().required(),
       }),
       envFilePath: './apps/storage-mgmt-service/.env',
     }),
