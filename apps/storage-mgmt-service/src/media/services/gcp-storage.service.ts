@@ -51,7 +51,6 @@ export class GcpStorageService {
 
     const bucket = this.getBucket(video);
     const file = bucket.file(filename);
-    console.log(bucket);
 
     try {
       console.log('Uploading file...');

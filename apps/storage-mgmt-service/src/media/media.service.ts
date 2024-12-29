@@ -177,6 +177,7 @@ export class MediaService {
     };
 
     const savedVideo = await this.videoRepository.create(newVideo);
+    console.log('hello...');
 
     await this.notifyMediaConsumed(MediaEvent.UPLOAD, savedVideo, userId);
 
@@ -399,6 +400,7 @@ export class MediaService {
   async getPaginatedVideos(
     pageIndex: number = 0,
     pageSize: number = 50,
+    userId?: string,
   ): Promise<
     {
       videoId: string;
@@ -430,9 +432,17 @@ export class MediaService {
           );
         console.log(thumbnail.name);
 
-        const video = await this.videoRepository.findOne({
-          thumbnailFilename: thumbnail.name,
-        });
+        let video;
+        if (userId) {
+          video = await this.videoRepository.findOne({
+            thumbnailFilename: thumbnail.name,
+            user: userId,
+          });
+        } else {
+          video = await this.videoRepository.findOne({
+            thumbnailFilename: thumbnail.name,
+          });
+        }
         console.log(video);
 
         if (!video) {
@@ -460,7 +470,7 @@ export class MediaService {
     videoIds: string[],
     userId: string,
   ): Promise<BulkResponse[]> {
-    let responses: BulkResponse[];
+    let responses = [];
 
     for (const videoId of videoIds) {
       const { msg } = await this.remove(videoId, userId);
@@ -470,7 +480,7 @@ export class MediaService {
       });
     }
 
-    return responses;
+    return responses as BulkResponse[];
   }
 
   async notifyMediaConsumed(

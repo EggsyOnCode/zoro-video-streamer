@@ -109,11 +109,26 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('/user')
+  @HttpCode(200)
+  async getUserVideos(
+    @Req() req: any, // to get user from the request
+    @Query('pageIndex') pageIndex: number = 0,
+    @Query('pageSize') pageSize: number = 50,
+  ) {
+    return this.mediaService.getPaginatedVideos(
+      pageIndex,
+      pageSize,
+      req.user.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete('/videos/bulk')
   @HttpCode(200)
   async bulkRemove(@Body() body: { videoIds: string[] }, @Req() req: any) {
     const { videoIds } = body;
-    console.log(videoIds);
+    console.log('ids: ', videoIds);
 
     if (!Array.isArray(videoIds) || videoIds.length === 0) {
       throw new Error('Invalid input: videoIds must be a non-empty array.');

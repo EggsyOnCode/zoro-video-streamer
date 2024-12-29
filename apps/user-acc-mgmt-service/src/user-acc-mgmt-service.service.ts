@@ -102,7 +102,7 @@ export class UserAccMgmtServiceService {
   }
 
   private async checkPwdAgainstHash(hash: string, password: string) {
-    return await matchPassword(password, hash);
+    return matchPassword(password, hash);
   }
 
   async validate(username: string, pwd: string) {
