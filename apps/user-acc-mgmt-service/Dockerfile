@@ -11,10 +11,12 @@ RUN set HTTPS_PROXY=null
 RUN npm config list  
 
 RUN npm install
+RUN npm install -g @nestjs/cli
 
 COPY . .
 
 RUN npm run build user-acc-mgmt-service
+
 
 FROM node:alpine as production
 
@@ -31,4 +33,4 @@ COPY . .
 
 COPY --from=development /usr/src/app/dist ./dist
 
-CMD ["node", "dist/apps/auth/main"]
+CMD ["node", "dist/apps/user-acc-mgmt-service/main"]

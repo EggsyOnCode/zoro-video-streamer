@@ -11,6 +11,7 @@ RUN set HTTPS_PROXY=null
 RUN npm config list  
 
 RUN npm install
+RUN npm install -g @nestjs/cli
 
 COPY . .
 
@@ -31,4 +32,4 @@ COPY . .
 
 COPY --from=development /usr/src/app/dist ./dist
 
-CMD ["node", "dist/apps/auth/main"]
+CMD ["node", "dist/apps/storage-mgmt-service/main"]

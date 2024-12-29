@@ -1,95 +1,115 @@
 services:
-  mongo:
+  # MongoDB for Storage Management Service
+  mongo-storage:
     image: mongo
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
-    network_mode: host
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongo_storage_data:/data/db
 
-  mongo-express:
+  # MongoDB for User Management Service
+  mongo-user:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    ports:
+      - '27019:27017'
+    volumes:
+      - mongo_user_data:/data/db
+
+  # Mongo Express for Storage Management
+  mongo-express-storage:
     image: mongo-express
     restart: always
     ports:
-      - 8081:8081
+      - '8082:8081'
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: root
-      ME_CONFIG_MONGODB_URL: mongodb://root:root@localhost:27017/
+      ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo-storage:27017/
       ME_CONFIG_BASICAUTH: false
-    network_mode: host
 
-  # Mongo Express for storage management (connecting to mongo-storage)
-  # mongo-express-storage:
-  #   image: mongo-express
-  #   restart: always
-  #   ports:
-  #     - 8082:8081 # Expose mongo-express UI port
-  #   environment:
-  #     ME_CONFIG_MONGODB_ADMINUSERNAME: root
-  #     ME_CONFIG_MONGODB_ADMINPASSWORD: root
-  #     ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo-storage:27017/ # Point to mongo-storage service
-  #     ME_CONFIG_BASICAUTH: false
+  # Mongo Express for User Management
+  mongo-express-user:
+    image: mongo-express
+    restart: always
+    ports:
+      - '8083:8081'
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo-user:27017/
+      ME_CONFIG_BASICAUTH: false
 
   # Storage Management Service
-  # storage-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/storage-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev storage-mgmt-service
-  #   env_file:
-  #     - ./apps/storage-mgmt-service/.env
-  #   depends_on:
-  #     - mongo-user
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
-  #   environment:
-  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
-  #   ports:
-  #     - '3000:3000'
-  #   network_mode: host
+  storage-mgmt-service:
+    build:
+      context: .
+      dockerfile: ./apps/storage-mgmt-service/Dockerfile
+      target: development
+    command: nest start storage-mgmt-service --watch
+    env_file:
+      - ./apps/storage-mgmt-service/.env
+    depends_on:
+      - mongo-storage
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+      - PORT=4000
+    ports:
+      - '4000:4000'
 
-  # # User Management Service
-  # user-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/user-acc-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev user-mgmt-service
-  #   env_file:
-  #     - ./apps/user-acc-mgmt-service/.env
-  #   depends_on:
-  #     - mongo-user
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
-  #   environment:
-  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
-  #   ports:
-  #     - '4000:4000'
-  #   network_mode: host
+  # User Management Service
+  user-mgmt-service:
+    build:
+      context: .
+      dockerfile: ./apps/user-acc-mgmt-service/Dockerfile
+      target: development
+    command: nest start user-acc-mgmt-service --watch
+    env_file:
+      - ./apps/user-acc-mgmt-service/.env
+    depends_on:
+      - mongo-user
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+      - PATH=/usr/local/bin:/usr/src/app/node_modules/.bin:$PATH
+      - PORT=5000
+    ports:
+      - '5000:5000'
 
-  # # Usage Management Service
-  # usage-mgmt-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/usage-mgmt-service/Dockerfile
-  #     target: development
-  #   command: npm run start:dev usage-mgmt-service
-  #   env_file:
-  #     - ./apps/usage-mgmt-service/.env
-  #   depends_on:
-  #     - mongo-user
-  #   volumes:
-  #     - .:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #     - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
-  #   environment:
-  #     - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
-  #   ports:
-  #     - '5000:5000'
-  #   network_mode: host
+  # Usage Management Service
+  usage-mgmt-service:
+    build:
+      context: .
+      dockerfile: ./apps/usage-mgmt-service/Dockerfile
+      target: development
+    command: nest start usage-mgmt-service --watch
+    env_file:
+      - ./apps/usage-mgmt-service/.env
+    depends_on:
+      - mongo-user
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      - $HOME/credentials/cc-final-445817-db19ad7f3f68.json:/gcp/creds.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json
+
+volumes:
+  mongo_storage_data:
+    driver: local
+  mongo_user_data:
+    driver: local

@@ -1,14 +1,15 @@
 import {
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersRepository } from './users.repository';
-import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from './schema/user.schema';
+import { hashPassword, matchPassword } from '../utils/hashing';
 
 @Injectable()
 export class UserAccMgmtServiceService {
@@ -16,25 +17,36 @@ export class UserAccMgmtServiceService {
 
   async create(createUserDto: CreateUserDto) {
     await this.validateCreateUserRequest(createUserDto);
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = hashPassword(createUserDto.password);
+    console.log(hashedPassword);
+
     const newUser = await this.userRepo.create({
       ...createUserDto,
       userId: uuidv4(),
       passwordHash: hashedPassword,
     });
+    console.log('helllo...');
+
     return newUser;
   }
 
   private async validateCreateUserRequest(request: CreateUserDto) {
     let user: User;
+    console.log(request);
+
     try {
       user = await this.userRepo.findOne({
         email: request.email,
       });
-    } catch (err) {}
+      console.log(user);
+    } catch (err) {
+      throw new InternalServerErrorException("couldn't validate user req");
+    }
 
     if (user) {
       throw new UnprocessableEntityException('Email already exists.');
+    } else {
+      return;
     }
   }
 
@@ -52,7 +64,7 @@ export class UserAccMgmtServiceService {
     const user = await this.userRepo.findOne({ username: username });
     console.log(user);
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !(await matchPassword(password, user.passwordHash))) {
       throw new NotFoundException('Invalid credentials');
     }
     // return null;
@@ -74,7 +86,7 @@ export class UserAccMgmtServiceService {
       updateFields.username = updateUserDto.username;
     }
     if (updateUserDto.password) {
-      updateFields.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
+      updateFields.passwordHash = await hashPassword(updateUserDto.password);
     }
 
     const updatedUser = (await this.userRepo.upsert(
@@ -90,7 +102,7 @@ export class UserAccMgmtServiceService {
   }
 
   private async checkPwdAgainstHash(hash: string, password: string) {
-    return await bcrypt.compare(password, hash);
+    return await matchPassword(password, hash);
   }
 
   async validate(username: string, pwd: string) {

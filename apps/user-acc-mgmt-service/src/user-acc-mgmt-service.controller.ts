@@ -30,6 +30,8 @@ export class UserAccMgmtServiceController {
   @Post('register')
   @HttpCode(201)
   async create(@Body() createUserDto: CreateUserDto) {
+    console.log(createUserDto);
+
     const user = await this.usersService.create(createUserDto);
     console.log(user);
 
@@ -95,5 +97,10 @@ export class UserAccMgmtServiceController {
       username: user.username,
       email: user.email,
     };
+  }
+
+  @Get('/health')
+  getHealth() {
+    return { status: 'OK' };
   }
 }
